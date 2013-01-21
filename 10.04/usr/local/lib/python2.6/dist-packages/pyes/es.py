@@ -13,6 +13,7 @@ except ImportError:
     # For Python < 2.6 or people using a newer version of simplejson
     import simplejson as json
 
+import cjson
 import logging
 from datetime import date, datetime
 import base64
@@ -108,9 +109,9 @@ class ElasticSearchModel(DotDict):
             cmd[op_type]['_version'] = meta.version
         if meta.id:
             cmd[op_type]['_id'] = meta.id
-        result.append(json.dumps(cmd, cls=self.meta.connection.encoder))
+        result.append(cjson.encode(cmd))
         result.append("\n")
-        result.append(json.dumps(self.store, cls=self.meta.connection.encoder))
+        result.append(cjson.encode(self.store))
         result.append("\n")
         return ''.join(result)
 
@@ -298,7 +299,7 @@ class ES(object):
                 body = body.as_dict()
 
             if isinstance(body, dict):
-                body = json.dumps(body, cls=self.encoder)
+                body = cjson.encode(body)
         else:
             body = ""
         request = RestRequest(method=Method._NAMES_TO_VALUES[method.upper()],
@@ -316,10 +317,10 @@ class ES(object):
 
         # handle the response
         try:
-            decoded = json.loads(response.body, cls=self.decoder)
+            decoded = cjson.decode(response.body)
         except ValueError:
             try:
-                decoded = json.loads(response.body, cls=ESJsonDecoder)
+                decoded = cjson.decode(response.body)
             except ValueError:
                 # The only known place where we get back a body which can't be
                 # parsed as JSON is when no handler is found for a request URI.
@@ -841,8 +842,8 @@ class ES(object):
                 cmd[op_type]['_id'] = id
 
             if isinstance(doc, dict):
-                doc = json.dumps(doc, cls=self.encoder)
-            command = "%s\n%s" % (json.dumps(cmd, cls=self.encoder), doc)
+                doc = cjson.encode(doc)
+            command = "%s\n%s" % (cjson.encode(cmd), doc)
             self.bulk_data.append(command)
             return self.flush_bulk()
 
@@ -928,7 +929,7 @@ class ES(object):
         if bulk:
             cmd = { "delete" : { "_index" : index, "_type" : doc_type,
                                 "_id": id}}
-            self.bulk_data.append(json.dumps(cmd, cls=self.encoder))
+            self.bulk_data.append(cjson.encode(cmd))
             self.flush_bulk()
             return
 
@@ -951,7 +952,7 @@ class ES(object):
             body = query.to_query_json()
         elif isinstance(query, dict):
             # A direct set of search parameters.
-            body = json.dumps(query, cls=self.encoder)
+            body = cjson.encode(query)
         else:
             raise InvalidQuery("deleteByQuery() must be supplied with a Query object, or a dict")
 
@@ -1051,7 +1052,7 @@ class ES(object):
             body = query.to_search_json()
         elif isinstance(query, dict):
             # A direct set of search parameters.
-            body = json.dumps(query, cls=self.encoder)
+            body = cjson.encode(query)
         else:
             raise InvalidQuery("search() must be supplied with a Search or Query object, or a dict")
 
@@ -1118,7 +1119,7 @@ class ES(object):
             if isinstance(query, dict):
                 if 'query' in query:
                     query = query['query']
-                query = json.dumps(query, cls=self.encoder)
+                query = cjson.encode(query)
             elif hasattr(query, "to_query_json"):
                 query = query.to_query_json(inner=True)
         querystring_args = query_params
@@ -1202,7 +1203,7 @@ class ES(object):
             raise InvalidQuery("create_percolator() must be supplied with a Query object or dict")
         # A direct set of search parameters.
         query.update(kwargs)
-        body = json.dumps(query, cls=self.encoder)
+        body = cjson.encode(query)
 
         return self._send_request('PUT', path, body=body)
 
@@ -1230,7 +1231,7 @@ class ES(object):
             body = query.to_query_json()
         elif isinstance(query, dict):
             # A direct set of search parameters.
-            body = json.dumps(query, cls=self.encoder)
+            body = cjson.encode(query)
         else:
             raise InvalidQuery("percolate() must be supplied with a Query object, or a dict")
 
